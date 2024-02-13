@@ -59,9 +59,12 @@ import org.apache.flink.runtime.rest.handler.async.AsynchronousOperationResult;
 import org.apache.flink.runtime.rest.messages.DashboardConfiguration;
 import org.apache.flink.runtime.rest.messages.EmptyMessageParameters;
 import org.apache.flink.runtime.rest.messages.EmptyRequestBody;
+import org.apache.flink.runtime.rest.messages.JobExceptionsHeaders;
+import org.apache.flink.runtime.rest.messages.JobExceptionsInfoWithHistory;
 import org.apache.flink.runtime.rest.messages.JobsOverviewHeaders;
 import org.apache.flink.runtime.rest.messages.TriggerId;
 import org.apache.flink.runtime.rest.messages.job.JobDetailsInfo;
+import org.apache.flink.runtime.rest.messages.job.JobExceptionsMessageParameters;
 import org.apache.flink.runtime.rest.messages.job.metrics.JobMetricsHeaders;
 import org.apache.flink.runtime.rest.messages.job.savepoints.SavepointDisposalRequest;
 import org.apache.flink.runtime.rest.messages.job.savepoints.SavepointDisposalTriggerHeaders;
@@ -251,6 +254,19 @@ public abstract class AbstractFlinkService implements FlinkService {
         try (var clusterClient = getClusterClient(conf)) {
             return clusterClient
                     .requestJobResult(jobID)
+                    .get(operatorConfig.getFlinkClientTimeout().getSeconds(), TimeUnit.SECONDS);
+        }
+    }
+
+    @Override
+    public JobExceptionsInfoWithHistory getExceptionsInfo(Configuration conf, JobID jobID)
+            throws Exception {
+        JobExceptionsHeaders jobExceptionsHeaders = JobExceptionsHeaders.getInstance();
+        JobExceptionsMessageParameters params = new JobExceptionsMessageParameters();
+        params.jobPathParameter.resolve(jobID);
+        try (var clusterClient = getClusterClient(conf)) {
+            return clusterClient
+                    .sendRequest(jobExceptionsHeaders, params, EmptyRequestBody.getInstance())
                     .get(operatorConfig.getFlinkClientTimeout().getSeconds(), TimeUnit.SECONDS);
         }
     }
