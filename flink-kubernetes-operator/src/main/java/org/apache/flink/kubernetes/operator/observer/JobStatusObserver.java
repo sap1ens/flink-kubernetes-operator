@@ -183,6 +183,8 @@ public abstract class JobStatusObserver<R extends AbstractFlinkResource<?, ?>> {
     }
 
     private void setErrorIfPresent(FlinkResourceContext<R> ctx, JobStatusMessage clusterJobStatus) {
+        var errorReported = false;
+
         try {
             var jobResult =
                     ctx.getFlinkService()
@@ -195,10 +197,18 @@ public abstract class JobStatusObserver<R extends AbstractFlinkResource<?, ?>> {
                         "Job {} failed with error: {}",
                         clusterJobStatus.getJobId(),
                         error.get().getFullStringifiedStackTrace());
-                // don't report any exceptions in case of the RUNNING state
-            } else if (!clusterJobStatus
-                    .getJobState()
-                    .equals(org.apache.flink.api.common.JobStatus.RUNNING)) {
+                errorReported = true;
+            }
+        } catch (Exception e) {
+            LOG.warn("Failed to request the job result", e);
+        }
+
+        try {
+            // don't report any exceptions in case of the RUNNING state
+            if (!errorReported
+                    && !clusterJobStatus
+                            .getJobState()
+                            .equals(org.apache.flink.api.common.JobStatus.RUNNING)) {
                 var exceptionsInfoResult =
                         ctx.getFlinkService()
                                 .getExceptionsInfo(
@@ -215,7 +225,7 @@ public abstract class JobStatusObserver<R extends AbstractFlinkResource<?, ?>> {
                         lastException);
             }
         } catch (Exception e) {
-            LOG.warn("Failed to request the job result", e);
+            LOG.warn("Failed to report last exception", e);
         }
     }
 }
