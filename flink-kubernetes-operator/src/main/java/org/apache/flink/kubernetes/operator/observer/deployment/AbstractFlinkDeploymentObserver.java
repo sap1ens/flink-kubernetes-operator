@@ -192,7 +192,7 @@ public abstract class AbstractFlinkDeploymentObserver
         FlinkDeploymentStatus status = dep.getStatus();
         var reconciliationStatus = status.getReconciliationStatus();
         if (status.getJobManagerDeploymentStatus() != JobManagerDeploymentStatus.ERROR
-                && !JobStatus.FAILED.name().equals(dep.getStatus().getJobStatus().getState())
+                && JobStatus.RUNNING.name().equals(dep.getStatus().getJobStatus().getState())
                 && reconciliationStatus.isLastReconciledSpecStable()) {
             status.setError(null);
         }
