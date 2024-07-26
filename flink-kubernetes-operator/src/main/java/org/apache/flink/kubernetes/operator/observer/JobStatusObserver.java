@@ -204,22 +204,49 @@ public class JobStatusObserver<R extends AbstractFlinkResource<?, ?>> {
     }
 
     private void setErrorIfPresent(FlinkResourceContext<R> ctx, JobStatusMessage clusterJobStatus) {
+        var errorReported = false;
+
         try {
-            var result =
+            var jobResult =
                     ctx.getFlinkService()
                             .requestJobResult(ctx.getObserveConfig(), clusterJobStatus.getJobId());
-            result.getSerializedThrowable()
-                    .ifPresent(
-                            t -> {
-                                updateFlinkResourceException(
-                                        t, ctx.getResource(), ctx.getOperatorConfig());
-                                LOG.error(
-                                        "Job {} failed with error: {}",
-                                        clusterJobStatus.getJobId(),
-                                        t.getFullStringifiedStackTrace());
-                            });
+            var error = jobResult.getSerializedThrowable();
+            if (error.isPresent()) {
+                updateFlinkResourceException(
+                        error.get(), ctx.getResource(), ctx.getOperatorConfig());
+                LOG.error(
+                        "Job {} failed with error: {}",
+                        clusterJobStatus.getJobId(),
+                        error.get().getFullStringifiedStackTrace());
+                errorReported = true;
+            }
         } catch (Exception e) {
             LOG.warn("Failed to request the job result", e);
+        }
+
+        try {
+            // don't report any exceptions in case of the RUNNING state
+            if (!errorReported
+                    && !clusterJobStatus
+                            .getJobState()
+                            .equals(org.apache.flink.api.common.JobStatus.RUNNING)) {
+                var exceptionsInfoResult =
+                        ctx.getFlinkService()
+                                .getExceptionsInfo(
+                                        ctx.getObserveConfig(), clusterJobStatus.getJobId());
+                if (exceptionsInfoResult.getExceptionHistory().getEntries().isEmpty()) {
+                    return; // nothing to report
+                }
+
+                var lastException = exceptionsInfoResult.getExceptionHistory().getEntries().get(0);
+                updateFlinkResourceException(lastException, ctx.getResource());
+                LOG.warn(
+                        "Job {} is reporting exception: {}",
+                        clusterJobStatus.getJobId(),
+                        lastException);
+            }
+        } catch (Exception e) {
+            LOG.warn("Failed to report last exception", e);
         }
     }
 }
