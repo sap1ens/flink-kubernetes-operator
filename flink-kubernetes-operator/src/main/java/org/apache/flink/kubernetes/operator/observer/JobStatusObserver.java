@@ -193,25 +193,22 @@ public abstract class JobStatusObserver<R extends AbstractFlinkResource<?, ?>> {
     }
 
     private void setErrorIfPresent(FlinkResourceContext<R> ctx, JobStatusMessage clusterJobStatus) {
-        if (clusterJobStatus.getJobState() == org.apache.flink.api.common.JobStatus.FAILED) {
-            try {
-                var result =
-                        ctx.getFlinkService()
-                                .requestJobResult(
-                                        ctx.getObserveConfig(), clusterJobStatus.getJobId());
-                result.getSerializedThrowable()
-                        .ifPresent(
-                                t -> {
-                                    updateFlinkResourceException(
-                                            t, ctx.getResource(), ctx.getOperatorConfig());
-                                    LOG.error(
-                                            "Job {} failed with error: {}",
-                                            clusterJobStatus.getJobId(),
-                                            t.getFullStringifiedStackTrace());
-                                });
-            } catch (Exception e) {
-                LOG.warn("Failed to request the job result", e);
-            }
+        try {
+            var result =
+                    ctx.getFlinkService()
+                            .requestJobResult(ctx.getObserveConfig(), clusterJobStatus.getJobId());
+            result.getSerializedThrowable()
+                    .ifPresent(
+                            t -> {
+                                updateFlinkResourceException(
+                                        t, ctx.getResource(), ctx.getOperatorConfig());
+                                LOG.error(
+                                        "Job {} failed with error: {}",
+                                        clusterJobStatus.getJobId(),
+                                        t.getFullStringifiedStackTrace());
+                            });
+        } catch (Exception e) {
+            LOG.warn("Failed to request the job result", e);
         }
     }
 }
