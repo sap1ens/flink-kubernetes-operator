@@ -36,6 +36,7 @@ import org.apache.flink.kubernetes.operator.observer.CheckpointFetchResult;
 import org.apache.flink.kubernetes.operator.observer.SavepointFetchResult;
 import org.apache.flink.runtime.client.JobStatusMessage;
 import org.apache.flink.runtime.jobmaster.JobResult;
+import org.apache.flink.runtime.rest.messages.JobExceptionsInfoWithHistory;
 
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.PodList;
@@ -73,6 +74,9 @@ public interface FlinkService {
     Collection<JobStatusMessage> listJobs(Configuration conf) throws Exception;
 
     JobResult requestJobResult(Configuration conf, JobID jobID) throws Exception;
+
+    JobExceptionsInfoWithHistory getExceptionsInfo(Configuration conf, JobID jobID)
+            throws Exception;
 
     void cancelJob(FlinkDeployment deployment, UpgradeMode upgradeMode, Configuration conf)
             throws Exception;

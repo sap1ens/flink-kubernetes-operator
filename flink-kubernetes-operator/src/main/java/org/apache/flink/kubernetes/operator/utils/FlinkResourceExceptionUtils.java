@@ -22,6 +22,7 @@ import org.apache.flink.kubernetes.operator.config.FlinkOperatorConfiguration;
 import org.apache.flink.kubernetes.operator.exception.DeploymentFailedException;
 import org.apache.flink.kubernetes.operator.exception.FlinkResourceException;
 import org.apache.flink.kubernetes.operator.exception.ReconciliationException;
+import org.apache.flink.runtime.rest.messages.JobExceptionsInfoWithHistory;
 import org.apache.flink.runtime.rest.util.RestClientException;
 import org.apache.flink.util.Preconditions;
 
@@ -62,10 +63,28 @@ public final class FlinkResourceExceptionUtils {
                         throwableCountThreshold,
                         labelMapper);
 
+        updateFlinkResourceException(flinkResourceException, resource);
+    }
+
+    public static <R extends AbstractFlinkResource> void updateFlinkResourceException(
+            JobExceptionsInfoWithHistory.RootExceptionInfo exception, R resource) {
+        FlinkResourceException flinkResourceException = FlinkResourceException.builder().build();
+
+        if (exception.getExceptionName() != null) {
+            var nameFragments = exception.getExceptionName().split("\\.");
+            // the last element is the exception class name
+            flinkResourceException.setType(nameFragments[nameFragments.length - 1]);
+        }
+        flinkResourceException.setStackTrace(exception.getStacktrace());
+
+        updateFlinkResourceException(flinkResourceException, resource);
+    }
+
+    public static <R extends AbstractFlinkResource> void updateFlinkResourceException(
+            FlinkResourceException exception, R resource) {
+
         try {
-            ((AbstractFlinkResource<?, ?>) resource)
-                    .getStatus()
-                    .setError(convertToJson(flinkResourceException));
+            ((AbstractFlinkResource<?, ?>) resource).getStatus().setError(convertToJson(exception));
         } catch (Exception e) {
             // Rollback to setting error string/message to CRD
             ((AbstractFlinkResource<?, ?>) resource)
