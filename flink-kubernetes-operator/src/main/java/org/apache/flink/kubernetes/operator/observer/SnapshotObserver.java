@@ -31,6 +31,7 @@ import org.apache.flink.kubernetes.operator.api.status.SnapshotTriggerType;
 import org.apache.flink.kubernetes.operator.config.FlinkOperatorConfiguration;
 import org.apache.flink.kubernetes.operator.config.KubernetesOperatorConfigOptions;
 import org.apache.flink.kubernetes.operator.controller.FlinkResourceContext;
+import org.apache.flink.kubernetes.operator.exception.ReconciliationException;
 import org.apache.flink.kubernetes.operator.reconciler.ReconciliationUtils;
 import org.apache.flink.kubernetes.operator.reconciler.SnapshotType;
 import org.apache.flink.kubernetes.operator.utils.ConfigOptionUtils;
@@ -445,17 +446,21 @@ public class SnapshotObserver<
         var status = ctx.getResource().getStatus();
         var jobStatus = status.getJobStatus();
 
-        ctx.getFlinkService()
-                .getLastCheckpoint(JobID.fromHexString(jobId), ctx.getObserveConfig())
-                .ifPresentOrElse(
-                        snapshot -> jobStatus.setUpgradeSavepointPath(snapshot.getLocation()),
-                        () -> {
-                            if (ReconciliationUtils.isJobCancelled(status)) {
-                                // For cancelled jobs the observed savepoint is always definite,
-                                // so if empty we know the job doesn't have any
-                                // checkpoints/savepoints
-                                jobStatus.setUpgradeSavepointPath(null);
-                            }
-                        });
+        try {
+            ctx.getFlinkService()
+                    .getLastCheckpoint(JobID.fromHexString(jobId), ctx.getObserveConfig())
+                    .ifPresentOrElse(
+                            snapshot -> jobStatus.setUpgradeSavepointPath(snapshot.getLocation()),
+                            () -> {
+                                if (ReconciliationUtils.isJobCancelled(status)) {
+                                    // For cancelled jobs the observed savepoint is always definite,
+                                    // so if empty we know the job doesn't have any
+                                    // checkpoints/savepoints
+                                    jobStatus.setUpgradeSavepointPath(null);
+                                }
+                            });
+        } catch (ReconciliationException e) {
+            LOG.debug("Ignoring ReconciliationException");
+        }
     }
 }
